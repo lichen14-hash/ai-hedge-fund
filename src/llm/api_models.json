@@ -83,5 +83,20 @@
     "display_name": "Azure Open AI Deployment",
     "model_name": "",
     "provider": "Azure OpenAI"
+  },
+  {
+    "display_name": "GLM-4 Plus",
+    "model_name": "glm-4-plus",
+    "provider": "ZhipuAI"
+  },
+  {
+    "display_name": "GLM-4 Air",
+    "model_name": "glm-4-air",
+    "provider": "ZhipuAI"
+  },
+  {
+    "display_name": "GLM-4 Flash",
+    "model_name": "glm-4-flash",
+    "provider": "ZhipuAI"
   }
 ]

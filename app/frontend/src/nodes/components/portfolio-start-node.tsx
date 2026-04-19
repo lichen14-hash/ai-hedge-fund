@@ -54,7 +54,7 @@ export function PortfolioStartNode({
   const [positions, setPositions] = useNodeState<PortfolioPosition[]>(id, 'positions', [
     { ticker: '', quantity: '', tradePrice: '' },
   ]);
-  const [initialCash, setInitialCash] = useNodeState(id, 'initialCash', '100000');
+  const [initialCash, setInitialCash] = useNodeState(id, 'initialCash', '300000');
   const [runMode, setRunMode] = useNodeState(id, 'runMode', 'single');
   const [startDate, setStartDate] = useNodeState(id, 'startDate', threeMonthsAgo.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useNodeState(id, 'endDate', today.toISOString().split('T')[0]);
@@ -223,7 +223,7 @@ export function PortfolioStartNode({
         agent_models: agentModels,
         start_date: startDate,
         end_date: endDate,
-        initial_capital: parseFloat(initialCash) || 100000,
+        initial_capital: parseFloat(initialCash) || 300000,
         margin_requirement: 0.0, // Default margin requirement
         model_name: undefined,
         model_provider: undefined,
@@ -248,7 +248,7 @@ export function PortfolioStartNode({
         model_provider: undefined,
         start_date: threeMonthsAgo.toISOString().split('T')[0],
         end_date: today.toISOString().split('T')[0],
-        initial_cash: parseFloat(initialCash) || 100000,
+        initial_cash: parseFloat(initialCash) || 300000,
         // Pass portfolio positions to backend
         portfolio_positions: portfolioPositions,
       });
@@ -283,7 +283,7 @@ export function PortfolioStartNode({
                   </div>
                   <Input
                     type="number"
-                    placeholder="100000"
+                    placeholder="300000"
                     value={initialCash}
                     onChange={handleInitialCashChange}
                     className="pl-8 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"

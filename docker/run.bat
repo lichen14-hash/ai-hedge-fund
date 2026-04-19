@@ -8,7 +8,7 @@ set "OLLAMA_BASE_URL_VALUE=%OLLAMA_BASE_URL%"
 set USE_EXTERNAL_OLLAMA=
 set START_DATE=
 set END_DATE=
-set INITIAL_AMOUNT=100000.0
+set INITIAL_AMOUNT=300000.0
 set MARGIN_REQUIREMENT=0.0
 set SHOW_REASONING=
 set COMMAND=
@@ -24,7 +24,7 @@ echo Options:
 echo   --ticker SYMBOLS    Comma-separated list of ticker symbols (e.g., AAPL,MSFT,NVDA)
 echo   --start-date DATE   Start date in YYYY-MM-DD format
 echo   --end-date DATE     End date in YYYY-MM-DD format
-echo   --initial-cash AMT  Initial cash position (default: 100000.0)
+echo   --initial-cash AMT  Initial cash position (default: 300000.0)
 echo   --margin-requirement RATIO  Margin requirement ratio (default: 0.0)
 echo   --ollama            Use Ollama for local LLM inference
 echo   --ollama-base-url URL  Use an existing Ollama endpoint (implies --ollama)

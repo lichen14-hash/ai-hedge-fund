@@ -8,6 +8,7 @@ from langchain_xai import ChatXAI
 from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langchain_gigachat import GigaChat
 from langchain_ollama import ChatOllama
+from langchain_community.chat_models import ChatZhipuAI
 from enum import Enum
 from pydantic import BaseModel
 from typing import Tuple, List
@@ -31,6 +32,7 @@ class ModelProvider(str, Enum):
     GIGACHAT = "GigaChat"
     AZURE_OPENAI = "Azure OpenAI"
     XAI = "xAI"
+    ZHIPUAI = "ZhipuAI"
 
 
 class LLMModel(BaseModel):
@@ -50,7 +52,7 @@ class LLMModel(BaseModel):
 
     def has_json_mode(self) -> bool:
         """Check if the model supports JSON mode"""
-        if self.is_deepseek() or self.is_gemini():
+        if self.is_deepseek() or self.is_gemini() or self.is_glm():
             return False
         # Only certain Ollama models support JSON mode
         if self.is_ollama():
@@ -75,6 +77,10 @@ class LLMModel(BaseModel):
     def is_ollama(self) -> bool:
         """Check if the model is an Ollama model"""
         return self.provider == ModelProvider.OLLAMA
+
+    def is_glm(self) -> bool:
+        """Check if the model is a GLM model"""
+        return self.provider == ModelProvider.ZHIPUAI
 
 
 # Load models from JSON file
@@ -250,6 +256,12 @@ def get_model(model_name: str, model_provider: ModelProvider, api_keys: dict = N
             print(f"Azure Deployment Name Error: Please make sure AZURE_OPENAI_DEPLOYMENT_NAME is set in your .env file.")
             raise ValueError("Azure OpenAI deployment name not found.  Please make sure AZURE_OPENAI_DEPLOYMENT_NAME is set in your .env file.")
         return AzureChatOpenAI(azure_endpoint=azure_endpoint, azure_deployment=azure_deployment_name, api_key=api_key, api_version="2024-10-21")
+    elif model_provider == ModelProvider.ZHIPUAI:
+        api_key = (api_keys or {}).get("ZHIPUAI_API_KEY") or os.getenv("ZHIPUAI_API_KEY")
+        if not api_key:
+            print(f"API Key Error: Please make sure ZHIPUAI_API_KEY is set in your .env file or provided via API keys.")
+            raise ValueError("ZhipuAI API key not found. Please make sure ZHIPUAI_API_KEY is set in your .env file or provided via API keys.")
+        return ChatZhipuAI(model=model_name, api_key=api_key)
     else:
         raise ValueError(
             f"Unsupported model provider: {model_provider}. "

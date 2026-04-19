@@ -1,4 +1,68 @@
+from enum import Enum
+
 from pydantic import BaseModel
+
+
+class MarketType(str, Enum):
+    """Enum for supported market types"""
+    US = "US"
+    CN_SH = "CN_SH"    # A股上证
+    CN_SZ = "CN_SZ"    # A股深证
+    HK = "HK"          # 港股
+
+
+def detect_market(ticker: str) -> MarketType:
+    """Detect market type from ticker format.
+
+    Examples:
+        600519.SH -> CN_SH (Shanghai A-share)
+        000858.SZ -> CN_SZ (Shenzhen A-share)
+        0700.HK   -> HK (Hong Kong)
+        AAPL      -> US (US stock, default)
+    """
+    ticker = ticker.upper().strip()
+    if ticker.endswith('.SH'):
+        return MarketType.CN_SH
+    elif ticker.endswith('.SZ'):
+        return MarketType.CN_SZ
+    elif ticker.endswith('.HK'):
+        return MarketType.HK
+    else:
+        return MarketType.US
+
+
+def normalize_ticker(ticker: str, target: str = "raw") -> str:
+    """Normalize ticker to target format.
+
+    Args:
+        ticker: Original ticker (e.g., '600519.SH', '0700.HK', 'AAPL')
+        target: Target format - 'raw' (strip suffix), 'akshare', 'yfinance'
+
+    Returns:
+        Normalized ticker string
+    """
+    ticker = ticker.upper().strip()
+    market = detect_market(ticker)
+
+    # Strip suffix to get raw code
+    raw = ticker.split('.')[0] if '.' in ticker else ticker
+
+    if target == "raw":
+        return raw
+    elif target == "akshare":
+        if market in (MarketType.CN_SH, MarketType.CN_SZ):
+            return raw  # AKShare uses pure digits: 600519
+        elif market == MarketType.HK:
+            return raw.lstrip('0').zfill(5)  # AKShare HK: 00700
+        else:
+            return raw  # US: AAPL
+    elif target == "yfinance":
+        if market == MarketType.HK:
+            return f"{raw}.HK"  # yfinance: 0700.HK
+        else:
+            return raw  # US: AAPL
+    else:
+        return raw
 
 
 class Price(BaseModel):
@@ -73,6 +137,17 @@ class LineItem(BaseModel):
 
     # Allow additional fields dynamically
     model_config = {"extra": "allow"}
+
+    def __getattr__(self, name: str):
+        """Return None for missing attributes to safely handle dynamic fields.
+
+        This allows safe access to optional financial fields that may not be
+        present in all data sources (e.g., A-share data from AKShare).
+        """
+        # Check if the attribute exists in pydantic_extra (dynamic fields)
+        if self.__pydantic_extra__ and name in self.__pydantic_extra__:
+            return self.__pydantic_extra__[name]
+        return None
 
 
 class LineItemResponse(BaseModel):

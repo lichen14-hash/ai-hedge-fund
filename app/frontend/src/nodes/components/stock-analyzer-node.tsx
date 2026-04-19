@@ -48,7 +48,7 @@ export function StockAnalyzerNode({
   // Use persistent state hooks
   const [tickers, setTickers] = useNodeState(id, 'tickers', 'AAPL,NVDA,TSLA');
   const [runMode, setRunMode] = useNodeState(id, 'runMode', 'single');
-  const [initialCash, setInitialCash] = useNodeState(id, 'initialCash', '100000');
+  const [initialCash, setInitialCash] = useNodeState(id, 'initialCash', '300000');
   const [startDate, setStartDate] = useNodeState(id, 'startDate', threeMonthsAgo.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useNodeState(id, 'endDate', today.toISOString().split('T')[0]);
   const [open, setOpen] = useState(false);
@@ -206,7 +206,7 @@ export function StockAnalyzerNode({
         agent_models: agentModels,
         start_date: startDate,
         end_date: endDate,
-        initial_capital: parseFloat(initialCash) || 100000,
+        initial_capital: parseFloat(initialCash) || 300000,
         margin_requirement: 0.0, // Default margin requirement
         model_name: undefined,
         model_provider: undefined,

@@ -61,6 +61,13 @@ def add_date_args(parser: argparse.ArgumentParser, *, default_months_back: int |
             default=(datetime.now() - relativedelta(months=default_months_back)).strftime("%Y-%m-%d"),
             help="Start date in YYYY-MM-DD format",
         )
+    parser.add_argument(
+        "--interval",
+        type=str,
+        choices=["daily", "1min", "5min", "15min", "30min", "60min"],
+        default="daily",
+        help="Data interval for price analysis (e.g., 15min for intraday)",
+    )
     return parser
 
 
@@ -217,6 +224,7 @@ class CLIInputs:
     model_provider: str
     start_date: str
     end_date: str
+    interval: str
     initial_cash: float
     margin_requirement: float
     show_reasoning: bool = False
@@ -244,8 +252,8 @@ def parse_cli_inputs(
         "--initial-capital",
         dest="initial_cash",
         type=float,
-        default=100000.0,
-        help="Initial cash position (alias: --initial-capital). Defaults to 100000.0",
+        default=300000.0,
+        help="Initial cash position (alias: --initial-capital). Defaults to 300000.0",
     )
     parser.add_argument(
         "--margin-requirement",
@@ -278,7 +286,8 @@ def parse_cli_inputs(
         model_provider=model_provider,
         start_date=start_date,
         end_date=end_date,
-        initial_cash=getattr(args, "initial_cash", 100000.0),
+        interval=getattr(args, "interval", "daily"),
+        initial_cash=getattr(args, "initial_cash", 300000.0),
         margin_requirement=getattr(args, "margin_requirement", 0.0),
         show_reasoning=getattr(args, "show_reasoning", False),
         show_agent_graph=getattr(args, "show_agent_graph", False),

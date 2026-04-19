@@ -94,7 +94,7 @@ class BaseHedgeFundRequest(BaseModel):
 class BacktestRequest(BaseHedgeFundRequest):
     start_date: str
     end_date: str
-    initial_capital: float = 100000.0
+    initial_capital: float = 300000.0
 
 
 class BacktestDayResult(BaseModel):
@@ -131,7 +131,7 @@ class BacktestResponse(BaseModel):
 class HedgeFundRequest(BaseHedgeFundRequest):
     end_date: Optional[str] = Field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
     start_date: Optional[str] = None
-    initial_cash: float = 100000.0
+    initial_cash: float = 300000.0
 
     def get_start_date(self) -> str:
         """Calculate start date if not provided"""

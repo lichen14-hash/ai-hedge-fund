@@ -30,7 +30,7 @@ def main() -> int:
         default=(datetime.now() - relativedelta(months=1)).strftime("%Y-%m-%d"),
         help="Start date YYYY-MM-DD",
     )
-    parser.add_argument("--initial-capital", type=float, default=100000)
+    parser.add_argument("--initial-capital", type=float, default=300000)
     parser.add_argument("--margin-requirement", type=float, default=0.0)
     parser.add_argument("--analysts", type=str, required=False)
     parser.add_argument("--analysts-all", action="store_true")
