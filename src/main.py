@@ -180,3 +180,18 @@ if __name__ == "__main__":
         interval=inputs.interval,
     )
     print_trading_output(result)
+
+    # Generate and save markdown report if --report flag is set
+    if inputs.report_file:
+        from src.utils.display import generate_markdown_report
+        report_md = generate_markdown_report(
+            result=result,
+            ticker_list=tickers,
+            model_name=f"{inputs.model_provider} {inputs.model_name}" if inputs.model_provider else inputs.model_name,
+            initial_cash=inputs.initial_cash,
+            model_name_for_translate=inputs.model_name,
+            model_provider_for_translate=inputs.model_provider,
+        )
+        with open(inputs.report_file, 'w', encoding='utf-8') as f:
+            f.write(report_md)
+        print(f"\n{Fore.GREEN}Report saved to: {inputs.report_file}{Style.RESET_ALL}")

@@ -15,6 +15,12 @@ class PortfolioDecision(BaseModel):
     quantity: int = Field(description="Number of shares to trade")
     confidence: int = Field(description="Confidence 0-100")
     reasoning: str = Field(description="Reasoning for the decision")
+    current_price: float = Field(default=0.0, description="Current stock price")
+    target_price: float = Field(default=0.0, description="Target price for the position")
+    stop_loss: float = Field(default=0.0, description="Stop loss price")
+    short_term: str = Field(default="", description="1-week strategy recommendation")
+    medium_term: str = Field(default="", description="1-month strategy recommendation")
+    long_term: str = Field(default="", description="3-6 month strategy recommendation")
 
 
 class PortfolioManagerOutput(BaseModel):
@@ -196,7 +202,10 @@ def generate_trading_decision(
         # If only 'hold' key exists, there is no trade possible
         if set(aa.keys()) == {"hold"}:
             prefilled_decisions[t] = PortfolioDecision(
-                action="hold", quantity=0, confidence=100.0, reasoning="No valid trade available"
+                action="hold", quantity=0, confidence=100.0, reasoning="No valid trade available",
+                current_price=current_prices.get(t, 0.0),
+                target_price=0.0, stop_loss=0.0,
+                short_term="", medium_term="", long_term=""
             )
         else:
             tickers_for_llm.append(t)
@@ -214,18 +223,25 @@ def generate_trading_decision(
             (
                 "system",
                 "You are a portfolio manager.\n"
-                "Inputs per ticker: analyst signals and allowed actions with max qty (already validated).\n"
-                "Pick one allowed action per ticker and a quantity ≤ the max. "
-                "Keep reasoning very concise (max 100 chars). No cash or margin math. Return JSON only."
+                "Inputs per ticker: analyst signals, current prices, and allowed actions with max qty (already validated).\n"
+                "Pick one allowed action per ticker and a quantity ≤ the max.\n"
+                "Also provide price recommendations:\n"
+                "- target_price: your price target based on the analyst signals\n"
+                "- stop_loss: recommended stop loss price\n"
+                "- short_term: 1-week strategy (max 150 chars)\n"
+                "- medium_term: 1-month strategy (max 150 chars)\n"
+                "- long_term: 3-6 month strategy (max 150 chars)\n"
+                "Keep reasoning concise (max 100 chars). Return JSON only."
             ),
             (
                 "human",
                 "Signals:\n{signals}\n\n"
+                "Current Prices:\n{prices}\n\n"
                 "Allowed:\n{allowed}\n\n"
                 "Format:\n"
                 "{{\n"
                 '  "decisions": {{\n'
-                '    "TICKER": {{"action":"...","quantity":int,"confidence":int,"reasoning":"..."}}\n'
+                '    "TICKER": "action":"...","quantity":int,"confidence":int,"reasoning":"...","current_price":float,"target_price":float,"stop_loss":float,"short_term":"...","medium_term":"...","long_term":"..."\n'
                 "  }}\n"
                 "}}"
             ),
@@ -234,6 +250,7 @@ def generate_trading_decision(
 
     prompt_data = {
         "signals": json.dumps(compact_signals, separators=(",", ":"), ensure_ascii=False),
+        "prices": json.dumps({t: current_prices.get(t, 0) for t in tickers_for_llm}, separators=(",", ":"), ensure_ascii=False),
         "allowed": json.dumps(compact_allowed, separators=(",", ":"), ensure_ascii=False),
     }
     prompt = template.invoke(prompt_data)
@@ -244,7 +261,10 @@ def generate_trading_decision(
         decisions = dict(prefilled_decisions)
         for t in tickers_for_llm:
             decisions[t] = PortfolioDecision(
-                action="hold", quantity=0, confidence=0.0, reasoning="Default decision: hold"
+                action="hold", quantity=0, confidence=0.0, reasoning="Default decision: hold",
+                current_price=current_prices.get(t, 0.0),
+                target_price=0.0, stop_loss=0.0,
+                short_term="", medium_term="", long_term=""
             )
         return PortfolioManagerOutput(decisions=decisions)
 

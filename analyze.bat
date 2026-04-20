@@ -40,20 +40,6 @@ echo  Output: %OUTPUT_FILE%
 echo ========================================
 echo.
 
-REM Write Markdown header
-echo # %TICKER% Analysis Report > "%OUTPUT_FILE%"
-echo. >> "%OUTPUT_FILE%"
-echo **Time**: %date% %time% >> "%OUTPUT_FILE%"
-echo **Model**: ZhipuAI GLM-4 Plus >> "%OUTPUT_FILE%"
-echo **Analysts**: All 19 >> "%OUTPUT_FILE%"
-echo **Initial Cash**: $300,000 >> "%OUTPUT_FILE%"
-echo. >> "%OUTPUT_FILE%"
-echo --- >> "%OUTPUT_FILE%"
-echo. >> "%OUTPUT_FILE%"
-echo ## Results >> "%OUTPUT_FILE%"
-echo. >> "%OUTPUT_FILE%"
-echo ```text >> "%OUTPUT_FILE%"
-
 REM Check if poetry is available and run analysis
 where poetry >nul 2>&1
 if %errorlevel% == 0 (
@@ -62,18 +48,14 @@ if %errorlevel% == 0 (
     set "POETRY_CMD=python -m poetry"
 )
 
-REM Use call to expand variable set inside if block
-call %POETRY_CMD% run python src/main.py --tickers %TICKER% --model glm-4-plus --analysts-all --show-reasoning > temp_output.txt 2>&1
+REM Run analysis with real-time output to CMD and save structured report
+REM The --report flag tells Python to generate the markdown report directly
+call %POETRY_CMD% run python src/main.py --tickers %TICKER% --model glm-4-plus --analysts-all --show-reasoning --report "%OUTPUT_FILE%" 2>&1 | powershell -NoProfile -Command "$input | Tee-Object -FilePath 'temp_output.txt'"
 
-REM Display output to terminal
-type temp_output.txt
-
-REM Append analysis output to md file
-type temp_output.txt >> "%OUTPUT_FILE%"
-echo ``` >> "%OUTPUT_FILE%"
-
-REM Cleanup temp file
-if exist temp_output.txt del temp_output.txt
+REM Clean up temp file
+if exist temp_output.txt (
+    del temp_output.txt
+)
 
 echo.
 echo ========================================

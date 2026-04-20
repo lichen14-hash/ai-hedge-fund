@@ -40,6 +40,11 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
         )
         if not financial_metrics:
             progress.update_status(agent_id, ticker, "Failed: No financial metrics found")
+            valuation_analysis[ticker] = {
+                "signal": "neutral",
+                "confidence": 0,
+                "reasoning": {"error": "No financial metrics found"},
+            }
             continue
         most_recent_metrics = financial_metrics[0]
 
@@ -68,6 +73,11 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
         )
         if len(line_items) < 2:
             progress.update_status(agent_id, ticker, "Failed: Insufficient financial line items")
+            valuation_analysis[ticker] = {
+                "signal": "neutral",
+                "confidence": 0,
+                "reasoning": {"error": "Insufficient financial line items"},
+            }
             continue
         li_curr, li_prev = line_items[0], line_items[1]
 
@@ -139,6 +149,11 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
         if not market_cap:
             progress.update_status(agent_id, ticker, "Failed: Market cap unavailable")
+            valuation_analysis[ticker] = {
+                "signal": "neutral",
+                "confidence": 0,
+                "reasoning": {"error": "Market cap unavailable"},
+            }
             continue
 
         method_values = {
@@ -151,6 +166,11 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
         total_weight = sum(v["weight"] for v in method_values.values() if v["value"] > 0)
         if total_weight == 0:
             progress.update_status(agent_id, ticker, "Failed: All valuation methods zero")
+            valuation_analysis[ticker] = {
+                "signal": "neutral",
+                "confidence": 0,
+                "reasoning": {"error": "All valuation methods returned zero"},
+            }
             continue
 
         for v in method_values.values():

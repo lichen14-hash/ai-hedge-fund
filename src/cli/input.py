@@ -41,6 +41,7 @@ def add_common_args(
     if include_ollama:
         parser.add_argument("--ollama", action="store_true", help="Use Ollama for local LLM inference")
     parser.add_argument("--model", type=str, required=False, help="Model name to use (e.g., gpt-4o)")
+    parser.add_argument("--report", type=str, required=False, help="Save analysis report to specified markdown file path")
     return parser
 
 
@@ -229,6 +230,7 @@ class CLIInputs:
     margin_requirement: float
     show_reasoning: bool = False
     show_agent_graph: bool = False
+    report_file: str = ""
     raw_args: Optional[argparse.Namespace] = None
 
 
@@ -291,6 +293,7 @@ def parse_cli_inputs(
         margin_requirement=getattr(args, "margin_requirement", 0.0),
         show_reasoning=getattr(args, "show_reasoning", False),
         show_agent_graph=getattr(args, "show_agent_graph", False),
+        report_file=getattr(args, "report", ""),
         raw_args=args,
     )
 
