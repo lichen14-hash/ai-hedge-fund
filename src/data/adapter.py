@@ -229,6 +229,41 @@ class DataSourceAdapter:
         """
         return self._try_providers(ticker, 'get_market_cap', end_date)
     
+    def get_valuation_params(self, ticker: str) -> dict:
+        """Get dynamic valuation parameters (beta, risk-free rate).
+        
+        Args:
+            ticker: Stock ticker
+        
+        Returns:
+            Dict with 'beta', 'risk_free_rate', 'market_risk_premium'.
+        """
+        market = detect_market(ticker)
+        provider_names = self._provider_priority.get(market, ['financial_datasets'])
+        
+        for provider_name in provider_names:
+            provider = self._get_provider(provider_name)
+            if provider is None:
+                continue
+            method = getattr(provider, 'get_valuation_params', None)
+            if method is None:
+                continue
+            try:
+                result = method(ticker)
+                if result is not None and isinstance(result, dict):
+                    logger.info(f"[{provider_name}] get_valuation_params({ticker}) succeeded")
+                    return result
+            except Exception as e:
+                logger.warning(f"[{provider_name}] get_valuation_params({ticker}) failed: {e}")
+                continue
+        
+        logger.warning(f"All providers failed for get_valuation_params({ticker})")
+        return {
+            "beta": 1.0,
+            "risk_free_rate": 0.045,
+            "market_risk_premium": 0.06,
+        }
+    
     def search_line_items(self, ticker: str, line_items: list[str], end_date: str, period: str = "annual", limit: int = 10) -> list[LineItem]:
         """Search for specific financial line items.
         

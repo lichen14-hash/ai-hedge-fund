@@ -3,6 +3,7 @@ from tabulate import tabulate
 from .analysts import ANALYST_ORDER
 import os
 import json
+from datetime import datetime
 
 
 def sort_agent_signals(signals):
@@ -689,6 +690,160 @@ def format_dict_reasoning(agent_name: str, reasoning_dict: dict) -> str:
     return result if result else str(reasoning_dict)
 
 
+def _build_financial_metrics_table(ticker: str, end_date: str, analyst_signals: dict) -> list[str]:
+    """Build core financial metrics table lines for the report."""
+    from src.tools.api import get_financial_metrics
+
+    lines = []
+    lines.append("## 二、核心财务指标")
+    lines.append("")
+    lines.append("| 指标分类 | 指标名称 | 数值 | 评价 |")
+    lines.append("|---------|---------|------|------|")
+
+    # Try to get financial metrics
+    metrics = None
+    try:
+        metrics_list = get_financial_metrics(ticker, end_date, period="ttm", limit=1)
+        if metrics_list and len(metrics_list) > 0:
+            metrics = metrics_list[0]
+    except Exception:
+        pass
+
+    if metrics is None:
+        lines.append("| - | 数据不可用 | N/A | - |")
+        return lines
+
+    def fmt_pct(val):
+        """Format as percentage."""
+        if val is None:
+            return "N/A"
+        return f"{val * 100:.2f}%" if abs(val) < 10 else f"{val:.2f}%"
+
+    def fmt_ratio(val):
+        """Format as ratio."""
+        if val is None:
+            return "N/A"
+        return f"{val:.2f}"
+
+    def fmt_number(val):
+        """Format large numbers in 亿/万 units."""
+        if val is None:
+            return "N/A"
+        abs_val = abs(val)
+        if abs_val >= 1e8:
+            return f"{val / 1e8:.2f}亿"
+        elif abs_val >= 1e4:
+            return f"{val / 1e4:.2f}万"
+        else:
+            return f"{val:.2f}"
+
+    def rate_roe(val):
+        if val is None: return "-"
+        v = val * 100 if abs(val) < 1 else val
+        if v >= 20: return "优秀"
+        if v >= 15: return "良好"
+        if v >= 10: return "中等"
+        if v >= 0: return "偏低"
+        return "亏损"
+
+    def rate_margin(val, name=""):
+        if val is None: return "-"
+        v = val * 100 if abs(val) < 1 else val
+        if v >= 30: return "优秀"
+        if v >= 20: return "良好"
+        if v >= 10: return "中等"
+        if v >= 0: return "偏低"
+        return "亏损"
+
+    def rate_growth(val):
+        if val is None: return "-"
+        v = val * 100 if abs(val) < 1 else val
+        if v >= 30: return "强劲"
+        if v >= 15: return "良好"
+        if v >= 5: return "温和"
+        if v >= 0: return "停滞"
+        return "下滑"
+
+    def rate_current_ratio(val):
+        if val is None: return "-"
+        if val >= 2.0: return "充裕"
+        if val >= 1.5: return "健康"
+        if val >= 1.0: return "适中"
+        return "偏紧"
+
+    def rate_de(val):
+        if val is None: return "-"
+        if val <= 0.5: return "低杠杆"
+        if val <= 1.0: return "适中"
+        if val <= 2.0: return "偏高"
+        return "高杠杆"
+
+    def rate_pe(val):
+        if val is None: return "-"
+        if val < 0: return "亏损"
+        if val <= 15: return "低估"
+        if val <= 25: return "合理"
+        if val <= 40: return "偏高"
+        return "高估"
+
+    def rate_pb(val):
+        if val is None: return "-"
+        if val < 0: return "净资产为负"
+        if val <= 1.0: return "低估"
+        if val <= 3.0: return "合理"
+        if val <= 5.0: return "偏高"
+        return "高估"
+
+    def rate_fcf_yield(val):
+        if val is None: return "-"
+        v = val * 100 if abs(val) < 1 else val
+        if v >= 8: return "极具吸引力"
+        if v >= 5: return "良好"
+        if v >= 2: return "一般"
+        if v >= 0: return "偏低"
+        return "现金流为负"
+
+    def rate_interest_coverage(val):
+        if val is None: return "-"
+        if val >= 10: return "极安全"
+        if val >= 5: return "安全"
+        if val >= 2: return "适中"
+        if val >= 1: return "紧张"
+        return "危险"
+
+    # === 盈利能力 ===
+    lines.append(f"| 盈利能力 | ROE (股东权益回报率) | {fmt_pct(metrics.return_on_equity)} | {rate_roe(metrics.return_on_equity)} |")
+    lines.append(f"| | 毛利率 | {fmt_pct(metrics.gross_margin)} | {rate_margin(metrics.gross_margin)} |")
+    lines.append(f"| | 营业利润率 | {fmt_pct(metrics.operating_margin)} | {rate_margin(metrics.operating_margin)} |")
+    lines.append(f"| | 净利润率 | {fmt_pct(metrics.net_margin)} | {rate_margin(metrics.net_margin)} |")
+
+    # === 增长性 ===
+    lines.append(f"| 增长性 | 营收增长率 | {fmt_pct(metrics.revenue_growth)} | {rate_growth(metrics.revenue_growth)} |")
+    lines.append(f"| | 净利润增长率 | {fmt_pct(metrics.earnings_growth)} | {rate_growth(metrics.earnings_growth)} |")
+    lines.append(f"| | 每股收益增长率 | {fmt_pct(metrics.earnings_per_share_growth)} | {rate_growth(metrics.earnings_per_share_growth)} |")
+
+    # === 财务健康 ===
+    lines.append(f"| 财务健康 | 流动比率 | {fmt_ratio(metrics.current_ratio)} | {rate_current_ratio(metrics.current_ratio)} |")
+    lines.append(f"| | 负债权益比 | {fmt_ratio(metrics.debt_to_equity)} | {rate_de(metrics.debt_to_equity)} |")
+    lines.append(f"| | 利息覆盖倍数 | {fmt_ratio(metrics.interest_coverage)} | {rate_interest_coverage(metrics.interest_coverage)} |")
+
+    # === 估值指标 ===
+    lines.append(f"| 估值水平 | 市盈率 (P/E) | {fmt_ratio(metrics.price_to_earnings_ratio)} | {rate_pe(metrics.price_to_earnings_ratio)} |")
+    lines.append(f"| | 市净率 (P/B) | {fmt_ratio(metrics.price_to_book_ratio)} | {rate_pb(metrics.price_to_book_ratio)} |")
+    lines.append(f"| | 市销率 (P/S) | {fmt_ratio(metrics.price_to_sales_ratio)} | {'-'} |")
+
+    # === 现金流 ===
+    lines.append(f"| 现金流 | FCF收益率 | {fmt_pct(metrics.free_cash_flow_yield)} | {rate_fcf_yield(metrics.free_cash_flow_yield)} |")
+    lines.append(f"| | 每股自由现金流 | {fmt_ratio(metrics.free_cash_flow_per_share)} | {'-'} |")
+
+    # === 规模 ===
+    lines.append(f"| 规模 | 总市值 | {fmt_number(metrics.market_cap)} | {'-'} |")
+    lines.append(f"| | 企业价值 (EV) | {fmt_number(metrics.enterprise_value)} | {'-'} |")
+    lines.append(f"| | EV/EBITDA | {fmt_ratio(metrics.enterprise_value_to_ebitda_ratio)} | {'-'} |")
+
+    return lines
+
+
 def generate_markdown_report(
     result: dict,
     ticker_list: list,
@@ -711,8 +866,6 @@ def generate_markdown_report(
     Returns:
         Complete Markdown report as a string
     """
-    from datetime import datetime
-
     decisions = result.get("decisions", {})
     analyst_signals = result.get("analyst_signals", {})
 
@@ -853,7 +1006,15 @@ def generate_markdown_report(
                 report_lines.append(f"| 长期 (3-6月) | {translated_long} |")
             report_lines.append("")
 
-        # Section 2: Signal distribution
+        # Insert financial metrics table (Section 2)
+        end_date = datetime.now().strftime("%Y-%m-%d")
+        financial_table_lines = _build_financial_metrics_table(ticker, end_date, analyst_signals)
+        report_lines.extend(financial_table_lines)
+        report_lines.append("")
+        report_lines.append("---")
+        report_lines.append("")
+
+        # Section 3: Signal distribution (was Section 2)
         bullish_count = 0
         bearish_count = 0
         neutral_count = 0
@@ -869,7 +1030,7 @@ def generate_markdown_report(
                     elif signal == "NEUTRAL":
                         neutral_count += 1
 
-        report_lines.append("## 二、分析师信号分布")
+        report_lines.append("## 三、分析师信号分布")
         report_lines.append("")
         report_lines.append("| 看多 (Bullish) | 看空 (Bearish) | 中性 (Neutral) |")
         report_lines.append("|:-:|:-:|:-:|")
@@ -878,8 +1039,8 @@ def generate_markdown_report(
         report_lines.append("---")
         report_lines.append("")
 
-        # Section 3: Detailed analyst analysis
-        report_lines.append("## 三、各分析师详细分析")
+        # Section 4: Detailed analyst analysis (was Section 3)
+        report_lines.append("## 四、各分析师详细分析")
         report_lines.append("")
         report_lines.append("| 分析师 | 信号 | 置信度 | 分析理由 |")
         report_lines.append("|--------|------|--------|----------|")
@@ -942,8 +1103,8 @@ def generate_markdown_report(
         report_lines.append("---")
         report_lines.append("")
 
-        # Section 4: Portfolio strategy
-        report_lines.append("## 四、投资组合策略")
+        # Section 5: Portfolio strategy (was Section 4)
+        report_lines.append("## 五、投资组合策略")
         report_lines.append("")
 
         # Extract portfolio manager reasoning

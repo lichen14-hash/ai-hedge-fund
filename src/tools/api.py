@@ -216,6 +216,19 @@ def get_market_cap(
     return market_cap
 
 
+def get_valuation_params(ticker: str, api_key: str = None) -> dict:
+    """Get dynamic valuation parameters for a ticker.
+    
+    Args:
+        ticker: Stock ticker symbol
+        api_key: Optional API key for data provider
+    
+    Returns:
+        Dict with 'beta', 'risk_free_rate', 'market_risk_premium'
+    """
+    return _adapter.get_valuation_params(ticker)
+
+
 def prices_to_df(prices: list[Price]) -> pd.DataFrame:
     """Convert prices to a DataFrame."""
     df = pd.DataFrame([p.model_dump() for p in prices])

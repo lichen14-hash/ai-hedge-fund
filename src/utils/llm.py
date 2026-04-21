@@ -1,6 +1,7 @@
 """Helper functions for LLM"""
 
 import json
+import re
 from pydantic import BaseModel
 from src.llm.models import get_model, get_model_info
 from src.utils.progress import progress
@@ -106,6 +107,18 @@ def create_default_response(model_class: type[BaseModel]) -> BaseModel:
     return model_class(**default_values)
 
 
+def clean_control_characters(text: str) -> str:
+    """
+    Remove illegal control characters from JSON string.
+    Keeps properly escaped characters (\\n, \\t, \\r) intact.
+    Removes raw control characters (\x00-\x1f, \x7f) that are not part of valid escape sequences.
+    """
+    # Replace illegal control characters with space
+    # This handles raw control characters that appear in the string
+    cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' ', text)
+    return cleaned
+
+
 def extract_json_from_response(content: str) -> dict | None:
     """Extracts JSON from markdown-formatted response."""
     try:
@@ -115,7 +128,9 @@ def extract_json_from_response(content: str) -> dict | None:
             json_end = json_text.find("```")
             if json_end != -1:
                 json_text = json_text[:json_end].strip()
-                return json.loads(json_text)
+                # Clean illegal control characters before parsing
+                json_text = clean_control_characters(json_text)
+                return json.loads(json_text, strict=False)
     except Exception as e:
         print(f"Error extracting JSON from response: {e}")
     return None

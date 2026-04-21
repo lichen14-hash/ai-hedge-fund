@@ -15,6 +15,7 @@ from src.utils.api_key import get_api_key_from_state
 from src.tools.api import (
     get_financial_metrics,
     get_market_cap,
+    get_valuation_params,
     search_line_items,
 )
 
@@ -102,6 +103,12 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
         # Enhanced Discounted Cash Flow with WACC and scenarios
         progress.update_status(agent_id, ticker, "Calculating WACC and enhanced DCF")
         
+        # Dynamic valuation parameters
+        valuation_params = get_valuation_params(ticker)
+        beta_proxy = valuation_params["beta"]
+        risk_free_rate = valuation_params["risk_free_rate"]
+        market_risk_premium = valuation_params["market_risk_premium"]
+
         # Calculate WACC
         wacc = calculate_wacc(
             market_cap=most_recent_metrics.market_cap or 0,
@@ -109,6 +116,9 @@ def valuation_analyst_agent(state: AgentState, agent_id: str = "valuation_analys
             cash=getattr(li_curr, 'cash_and_equivalents', None),
             interest_coverage=most_recent_metrics.interest_coverage,
             debt_to_equity=most_recent_metrics.debt_to_equity,
+            beta_proxy=beta_proxy,
+            risk_free_rate=risk_free_rate,
+            market_risk_premium=market_risk_premium,
         )
         
         # Prepare FCF history for enhanced DCF

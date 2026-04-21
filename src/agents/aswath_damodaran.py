@@ -11,6 +11,7 @@ from langchain_core.messages import HumanMessage
 from src.tools.api import (
     get_financial_metrics,
     get_market_cap,
+    get_valuation_params,
     search_line_items,
 )
 from src.utils.api_key import get_api_key_from_state
@@ -66,15 +67,18 @@ def aswath_damodaran_agent(state: AgentState, agent_id: str = "aswath_damodaran_
         progress.update_status(agent_id, ticker, "Getting market cap")
         market_cap = get_market_cap(ticker, end_date, api_key=api_key)
 
+        # Dynamic valuation parameters
+        valuation_params = get_valuation_params(ticker)
+
         # ─── Analyses ───────────────────────────────────────────────────────────
         progress.update_status(agent_id, ticker, "Analyzing growth and reinvestment")
         growth_analysis = analyze_growth_and_reinvestment(metrics, line_items)
 
         progress.update_status(agent_id, ticker, "Analyzing risk profile")
-        risk_analysis = analyze_risk_profile(metrics, line_items)
+        risk_analysis = analyze_risk_profile(metrics, line_items, valuation_params)
 
         progress.update_status(agent_id, ticker, "Calculating intrinsic value (DCF)")
-        intrinsic_val_analysis = calculate_intrinsic_value_dcf(metrics, line_items, risk_analysis)
+        intrinsic_val_analysis = calculate_intrinsic_value_dcf(metrics, line_items, risk_analysis, valuation_params)
 
         progress.update_status(agent_id, ticker, "Assessing relative valuation")
         relative_val_analysis = analyze_relative_valuation(metrics)
@@ -190,7 +194,7 @@ def analyze_growth_and_reinvestment(metrics: list, line_items: list) -> dict[str
     return {"score": score, "max_score": max_score, "details": "; ".join(details), "metrics": latest.model_dump()}
 
 
-def analyze_risk_profile(metrics: list, line_items: list) -> dict[str, any]:
+def analyze_risk_profile(metrics: list, line_items: list, valuation_params: dict | None = None) -> dict[str, any]:
     """
     Risk score (0-3):
       +1  Beta < 1.3
@@ -240,7 +244,7 @@ def analyze_risk_profile(metrics: list, line_items: list) -> dict[str, any]:
         details.append("Interest coverage NA")
 
     # Compute cost of equity for later use
-    cost_of_equity = estimate_cost_of_equity(beta)
+    cost_of_equity = estimate_cost_of_equity(beta, valuation_params)
 
     return {
         "score": score,
@@ -282,7 +286,7 @@ def analyze_relative_valuation(metrics: list) -> dict[str, any]:
 # ────────────────────────────────────────────────────────────────────────────────
 # Intrinsic value via FCFF DCF (Damodaran style)
 # ────────────────────────────────────────────────────────────────────────────────
-def calculate_intrinsic_value_dcf(metrics: list, line_items: list, risk_analysis: dict) -> dict[str, any]:
+def calculate_intrinsic_value_dcf(metrics: list, line_items: list, risk_analysis: dict, valuation_params: dict | None = None) -> dict[str, any]:
     """
     FCFF DCF with:
       • Base FCFF = latest free cash flow
@@ -310,7 +314,11 @@ def calculate_intrinsic_value_dcf(metrics: list, line_items: list, risk_analysis
     years = 10
 
     # Discount rate
-    discount = risk_analysis.get("cost_of_equity") or 0.09
+    discount = risk_analysis.get("cost_of_equity")
+    if discount is None and valuation_params:
+        discount = estimate_cost_of_equity(None, valuation_params)
+    elif discount is None:
+        discount = 0.09
 
     # Project FCFF and discount
     pv_sum = 0.0
@@ -347,11 +355,16 @@ def calculate_intrinsic_value_dcf(metrics: list, line_items: list, risk_analysis
     }
 
 
-def estimate_cost_of_equity(beta: float | None) -> float:
-    """CAPM: r_e = r_f + β × ERP (use Damodaran's long-term averages)."""
-    risk_free = 0.04          # 10-yr US Treasury proxy
-    erp = 0.05                # long-run US equity risk premium
-    beta = beta if beta is not None else 1.0
+def estimate_cost_of_equity(beta: float | None, valuation_params: dict | None = None) -> float:
+    """CAPM: r_e = r_f + β × ERP (dynamic parameters via get_valuation_params)."""
+    if valuation_params:
+        risk_free = valuation_params["risk_free_rate"]
+        erp = valuation_params["market_risk_premium"]
+        beta = beta if beta is not None else valuation_params["beta"]
+    else:
+        risk_free = 0.04          # 10-yr US Treasury proxy fallback
+        erp = 0.05                # long-run US equity risk premium fallback
+        beta = beta if beta is not None else 1.0
     return risk_free + beta * erp
 
 

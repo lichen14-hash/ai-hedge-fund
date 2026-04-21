@@ -24,6 +24,7 @@
 
 ## 更新摘要
 **变更内容**
+- LLM模型配置标准化：所有支持的提供商都包含temperature=0参数，确保金融分析的一致性和可重现性
 - 新增ZhipuAI模型支持，包括GLM-4系列模型的完整集成
 - 增强LangChain社区集成，支持更多第三方模型提供商
 - 更新模型提供商列表，新增ZhipuAI作为第16个支持的提供商
@@ -42,7 +43,7 @@
 9. [结论](#结论)
 
 ## 简介
-本技术文档面向AI对冲基金项目的LLM服务集成，系统性说明LangChain集成方案、多提供商客户端初始化与配置、API密钥管理机制、Ollama本地部署集成（含Docker配置）、统一LLM接口设计、服务配置与超时处理、以及故障转移与重试机制。文档同时覆盖前后端交互流程、状态管理与进度展示，并提供可操作的排障建议。**最新更新**：新增ZhipuAI模型支持和LangChain社区集成增强，现已支持16个主流LLM提供商。
+本技术文档面向AI对冲基金项目的LLM服务集成，系统性说明LangChain集成方案、多提供商客户端初始化与配置、API密钥管理机制、Ollama本地部署集成（含Docker配置）、统一LLM接口设计、服务配置与超时处理、以及故障转移与重试机制。文档同时覆盖前后端交互流程、状态管理与进度展示，并提供可操作的排障建议。**最新更新**：LLM模型配置已标准化，所有支持的提供商都包含temperature=0参数，确保金融分析的一致性和可重现性；新增ZhipuAI模型支持和LangChain社区集成增强，现已支持16个主流LLM提供商。
 
 ## 项目结构
 项目采用前后端分离架构，后端使用FastAPI提供REST接口，前端使用React构建用户界面。LLM相关能力主要集中在后端服务层与工具模块中，前端通过HTTP接口调用后端能力。
@@ -98,7 +99,7 @@ BE_DB --> BE_Routes
 - [app/backend/routes/ollama.py:1-319](file://app/backend/routes/ollama.py#L1-L319)
 
 ## 核心组件
-- **模型工厂与配置**：负责从JSON清单加载可用模型，按提供商生成LangChain客户端实例，支持16种云厂商与Ollama本地模型。
+- **模型工厂与配置**：负责从JSON清单加载可用模型，按提供商生成LangChain客户端实例，支持16种云厂商与Ollama本地模型。**更新**：所有模型初始化时都包含temperature=0参数，确保金融分析的一致性和可重现性。
 - **LLM调用封装**：统一LLM调用入口，内置重试、结构化输出、非JSON模型的JSON提取逻辑。
 - **Ollama服务**：封装Ollama安装检测、服务器启停、模型下载/删除、进度流式返回等能力。
 - **前后端集成**：后端提供REST接口，前端通过HTTP请求获取模型列表、管理Ollama状态与进度；API密钥通过数据库服务集中管理。
@@ -109,7 +110,7 @@ BE_DB --> BE_Routes
 - [app/backend/services/ollama_service.py:19-519](file://app/backend/services/ollama_service.py#L19-L519)
 
 ## 架构总览
-下图展示了从前端到后端再到LLM提供商的整体调用链路，以及本地Ollama与云端模型的并行接入方式。**新增**：ZhipuAI模型现已完全集成到架构中。
+下图展示了从前端到后端再到LLM提供商的整体调用链路，以及本地Ollama与云端模型的并行接入方式。**新增**：ZhipuAI模型现已完全集成到架构中，所有模型都使用标准化的temperature=0配置。
 
 ```mermaid
 sequenceDiagram
@@ -121,7 +122,7 @@ participant LC as "LangChain客户端"
 participant LLM as "LLM提供商"
 FE->>API : GET /language-models/providers
 API->>LM : 路由分发
-LM->>LC : 加载模型清单含ZhipuAI
+LM->>LC : 加载模型清单含ZhipuAItemperature=0
 LM-->>FE : 返回16个提供商的模型列表
 FE->>API : GET /ollama/status
 API->>OS : 查询状态
@@ -133,8 +134,8 @@ FE->>API : POST /ollama/models/download/progress
 API->>OS : 流式返回下载进度
 OS-->>FE : SSE数据流
 FE->>API : 调用业务推理示例含ZhipuAI
-API->>LC : 初始化指定提供商客户端含ZhipuAI
-LC->>LLM : 发起推理请求
+API->>LC : 初始化指定提供商客户端含ZhipuAItemperature=0
+LC->>LLM : 发起推理请求temperature=0
 LLM-->>LC : 返回响应
 LC-->>API : 结构化输出或解析后的JSON
 API-->>FE : 返回结果
@@ -155,6 +156,7 @@ API-->>FE : 返回结果
   - **ZhipuAI集成**：新增ZhipuAI支持，通过ChatZhipuAI类初始化，支持GLM-4系列模型（GLM-4 Plus、GLM-4 Air、GLM-4 Flash）。
   - Ollama：通过环境变量OLLAMA_BASE_URL或OLLAMA_HOST确定服务地址，默认http://localhost:11434。
   - Azure OpenAI：需要同时提供API密钥、端点与部署名称。
+- **温度参数标准化**：**更新**：所有模型初始化时都包含temperature=0参数，确保金融分析的一致性和可重现性。
 - **JSON模式支持**：根据模型能力判断是否启用结构化输出（JSON模式），不支持的模型自动从响应中提取JSON。
 
 ```mermaid
@@ -281,6 +283,7 @@ OS-->>FE : 返回结果
 - **模型选择**：前端通过后端提供的模型列表进行选择，后端将云模型与本地Ollama模型合并返回。**新增**：现支持16个提供商的模型选择。
 - **参数传递**：请求体包含全局模型配置与代理特定模型配置，后端从状态对象中提取模型名与提供商。
 - **响应处理**：优先使用结构化输出（JSON模式），对不支持的模型自动从Markdown格式响应中提取JSON。
+- **温度参数标准化**：**更新**：所有模型初始化时都包含temperature=0参数，确保金融分析的一致性和可重现性。
 
 ```mermaid
 sequenceDiagram
@@ -291,8 +294,8 @@ participant F as "模型工厂"
 participant C as "LangChain客户端"
 FE->>API : 发送推理请求(含agent模型配置)
 API->>U : call_llm(prompt, Pydantic模型, agent_name, state)
-U->>F : get_model_info()/get_model()含ZhipuAI
-F-->>U : 返回客户端实例含ZhipuAI
+U->>F : get_model_info()/get_model()含ZhipuAItemperature=0
+F-->>U : 返回客户端实例含ZhipuAItemperature=0
 U->>C : with_structured_output()/invoke()
 C-->>U : 结构化输出或原始响应
 U-->>API : 解析后的Pydantic模型
@@ -328,7 +331,7 @@ API-->>FE : 返回结果
 
 ```mermaid
 flowchart TD
-Enter(["进入LLM调用"]) --> Init["初始化模型与客户端"]
+Enter(["进入LLM调用"]) --> Init["初始化模型与客户端temperature=0"]
 Init --> StructMode{"支持JSON模式?"}
 StructMode --> |是| UseStruct["with_structured_output(JSON)"]
 StructMode --> |否| Invoke["直接invoke()"]
@@ -390,6 +393,7 @@ FrontOllama["前端Ollama设置"] --> Routes
 - **本地加速**：Ollama在本地运行可显著降低网络延迟；Docker环境下通过环境变量正确配置服务地址。
 - **扩展建议**：高并发场景可引入连接池、限流与缓存；对大模型下载可考虑断点续传与镜像加速。
 - **ZhipuAI优化**：GLM-4系列模型具有优秀的中文理解和推理能力，适合中国市场应用场景。
+- **温度参数标准化**：**更新**：所有模型使用temperature=0确保金融分析的一致性和可重现性，避免随机性影响投资决策的稳定性。
 
 ## 故障排查指南
 - **Ollama未安装/未运行**
@@ -422,6 +426,11 @@ FrontOllama["前端Ollama设置"] --> Routes
   - 参考
     - [src/llm/models.py:259-264](file://src/llm/models.py#L259-L264)
     - [src/llm/api_models.json:88-101](file://src/llm/api_models.json#L88-L101)
+- **温度参数问题**
+  - 症状：模型输出不稳定或可重现性差。
+  - 排查：确认所有模型初始化时都包含temperature=0参数；检查模型配置是否被意外覆盖。
+  - 参考
+    - [src/llm/models.py:148-271](file://src/llm/models.py#L148-L271)
 
 **章节来源**
 - [app/backend/main.py:32-56](file://app/backend/main.py#L32-L56)
@@ -432,6 +441,7 @@ FrontOllama["前端Ollama设置"] --> Routes
 - [app/backend/services/ollama_service.py:405-441](file://app/backend/services/ollama_service.py#L405-L441)
 - [src/llm/models.py:259-264](file://src/llm/models.py#L259-L264)
 - [src/llm/api_models.json:88-101](file://src/llm/api_models.json#L88-L101)
+- [src/llm/models.py:148-271](file://src/llm/models.py#L148-L271)
 
 ## 结论
-本项目通过LangChain统一抽象多提供商LLM接入，结合本地Ollama与云端模型，形成灵活的推理服务架构。**最新增强**：现已支持16个主流LLM提供商，包括新增的ZhipuAI模型支持和LangChain社区集成增强。后端提供完善的模型管理、状态监控与流式进度能力，前端通过直观界面完成模型选择与运维操作。API密钥管理与错误处理策略确保了系统的可靠性与安全性。后续可在多提供商备选、连接池优化与性能监控方面进一步增强，为AI对冲基金提供更强大的智能决策支持。
+本项目通过LangChain统一抽象多提供商LLM接入，结合本地Ollama与云端模型，形成灵活的推理服务架构。**最新增强**：现已支持16个主流LLM提供商，包括新增的ZhipuAI模型支持和LangChain社区集成增强。**关键更新**：LLM模型配置已标准化，所有支持的提供商都包含temperature=0参数，确保金融分析的一致性和可重现性。后端提供完善的模型管理、状态监控与流式进度能力，前端通过直观界面完成模型选择与运维操作。API密钥管理与错误处理策略确保了系统的可靠性与安全性。后续可在多提供商备选、连接池优化与性能监控方面进一步增强，为AI对冲基金提供更强大的智能决策支持。
